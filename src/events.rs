@@ -2,8 +2,20 @@
 //!
 //! This module provides events for triggering audio playback without
 //! directly spawning entities. Useful for fire-and-forget sounds.
+//!
+//! ## Music Events
+//!
+//! - [`PlayMusic`] - Start playing a music track
+//! - [`StopMusic`] - Stop a specific music category
+//! - [`StopAllMusic`] - Stop all currently playing music
+//! - [`FadeOutMusic`] - Gradually fade out music over time
+//!
+//! ## Sound Effect Events
+//!
+//! - [`PlaySfx`] - Play a sound effect
 
 use bevy::prelude::*;
+use std::time::Duration;
 
 use crate::components::PlaybackRandomizer;
 use crate::traits::{MusicCategory, SfxCategory};
@@ -47,6 +59,96 @@ impl<M: MusicCategory> PlayMusic<M> {
     pub fn with_playback(mut self, playback: PlaybackSettings) -> Self {
         self.playback = playback;
         self
+    }
+}
+
+/// Event to stop music of a specific category.
+///
+/// When triggered, immediately stops and despawns all music entities
+/// matching the specified category.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// use dmg_audio::StopMusic;
+///
+/// fn stop_combat_music(mut events: EventWriter<StopMusic<MyMusicCategory>>) {
+///     events.write(StopMusic::new(MyMusicCategory::Combat));
+/// }
+/// ```
+#[derive(Event, Clone)]
+pub struct StopMusic<M: MusicCategory> {
+    /// The music category to stop.
+    pub category: M,
+}
+
+impl<M: MusicCategory> StopMusic<M> {
+    /// Creates a new stop music event.
+    #[must_use]
+    pub fn new(category: M) -> Self {
+        Self { category }
+    }
+}
+
+/// Event to stop all currently playing music.
+///
+/// When triggered, immediately stops and despawns all music entities
+/// regardless of category.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// use dmg_audio::StopAllMusic;
+///
+/// fn mute_all_music(mut events: EventWriter<StopAllMusic<MyMusicCategory>>) {
+///     events.write(StopAllMusic::default());
+/// }
+/// ```
+#[derive(Event, Clone, Default)]
+pub struct StopAllMusic<M: MusicCategory> {
+    _phantom: std::marker::PhantomData<M>,
+}
+
+/// Event to fade out music of a specific category.
+///
+/// Gradually reduces the volume of matching music entities over the
+/// specified duration, then despawns them.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// use dmg_audio::FadeOutMusic;
+/// use std::time::Duration;
+///
+/// fn fade_to_new_track(mut events: EventWriter<FadeOutMusic<MyMusicCategory>>) {
+///     events.write(FadeOutMusic::new(
+///         MyMusicCategory::Exploration,
+///         Duration::from_secs(2),
+///     ));
+/// }
+/// ```
+#[derive(Event, Clone)]
+pub struct FadeOutMusic<M: MusicCategory> {
+    /// The music category to fade out.
+    pub category: M,
+    /// Duration of the fade-out effect.
+    pub duration: Duration,
+}
+
+impl<M: MusicCategory> FadeOutMusic<M> {
+    /// Creates a new fade-out music event.
+    #[must_use]
+    pub fn new(category: M, duration: Duration) -> Self {
+        Self { category, duration }
+    }
+
+    /// Creates a fade-out event with a duration in seconds.
+    #[must_use]
+    pub fn from_secs(category: M, seconds: f32) -> Self {
+        Self {
+            category,
+            duration: Duration::from_secs_f32(seconds),
+        }
     }
 }
 
@@ -159,6 +261,59 @@ pub fn handle_play_sfx_events<S: SfxCategory>(
             event.category,
             MaxConcurrent::new(event.handle.clone(), event.max_concurrent),
         ));
+    }
+}
+
+/// System that handles `StopMusic` events by despawning matching music entities.
+pub fn handle_stop_music_events<M: MusicCategory>(
+    mut commands: Commands,
+    mut events: EventReader<StopMusic<M>>,
+    query: Query<(Entity, &M)>,
+) {
+    for event in events.read() {
+        for (entity, category) in &query {
+            if *category == event.category {
+                commands.entity(entity).despawn();
+            }
+        }
+    }
+}
+
+/// System that handles `StopAllMusic` events by despawning all music entities.
+pub fn handle_stop_all_music_events<M: MusicCategory>(
+    mut commands: Commands,
+    mut events: EventReader<StopAllMusic<M>>,
+    query: Query<Entity, With<M>>,
+) {
+    for _ in events.read() {
+        for entity in &query {
+            commands.entity(entity).despawn();
+        }
+    }
+}
+
+/// System that handles `FadeOutMusic` events by adding fade-out components.
+pub fn handle_fade_out_music_events<M: MusicCategory>(
+    mut commands: Commands,
+    mut events: EventReader<FadeOutMusic<M>>,
+    query: Query<(Entity, &M, &AudioSink)>,
+) {
+    use crate::components::FadeOut;
+    use bevy::audio::Volume;
+
+    for event in events.read() {
+        for (entity, category, sink) in &query {
+            if *category == event.category {
+                // Get current volume to use as initial fade volume
+                let initial_volume = match sink.volume() {
+                    Volume::Linear(v) => v,
+                    Volume::Decibels(db) => 10_f32.powf(db / 20.0),
+                };
+                commands
+                    .entity(entity)
+                    .insert(FadeOut::new(event.duration).with_initial_volume(initial_volume));
+            }
+        }
     }
 }
 

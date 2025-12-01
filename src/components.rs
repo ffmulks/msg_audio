@@ -2,6 +2,7 @@
 
 use bevy::{audio::Volume, platform::collections::HashMap, prelude::*};
 use rand::prelude::*;
+use std::time::Duration;
 
 /// Component that limits the maximum concurrent instances of a sound.
 ///
@@ -56,6 +57,68 @@ impl SoundEffectCounter {
             counts: HashMap::default(),
             timer: Timer::from_seconds(seconds, TimerMode::Repeating),
         }
+    }
+}
+
+/// Component for audio that is fading out.
+///
+/// When attached to an audio entity, the volume will be gradually reduced
+/// over the specified duration, then the entity will be despawned.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// use dmg_audio::FadeOut;
+/// use std::time::Duration;
+///
+/// // Manually add fade-out to an existing audio entity
+/// commands.entity(music_entity).insert(FadeOut::new(Duration::from_secs(2)));
+/// ```
+#[derive(Component, Reflect, Debug, Clone)]
+#[reflect(Component)]
+pub struct FadeOut {
+    /// Timer tracking the fade progress.
+    pub timer: Timer,
+    /// Initial volume when fade started.
+    pub initial_volume: f32,
+}
+
+impl FadeOut {
+    /// Creates a new fade-out component with the specified duration.
+    #[must_use]
+    pub fn new(duration: Duration) -> Self {
+        Self {
+            timer: Timer::new(duration, TimerMode::Once),
+            initial_volume: 1.0,
+        }
+    }
+
+    /// Creates a fade-out from seconds.
+    #[must_use]
+    pub fn from_secs(seconds: f32) -> Self {
+        Self::new(Duration::from_secs_f32(seconds))
+    }
+
+    /// Sets the initial volume for the fade.
+    #[must_use]
+    pub fn with_initial_volume(mut self, volume: f32) -> Self {
+        self.initial_volume = volume;
+        self
+    }
+
+    /// Returns the current volume based on fade progress.
+    ///
+    /// Returns a value from `initial_volume` down to 0.0 as the timer progresses.
+    #[must_use]
+    pub fn current_volume(&self) -> f32 {
+        let progress = self.timer.fraction();
+        self.initial_volume * (1.0 - progress)
+    }
+
+    /// Returns true if the fade has completed.
+    #[must_use]
+    pub fn is_finished(&self) -> bool {
+        self.timer.finished()
     }
 }
 

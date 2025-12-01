@@ -49,7 +49,11 @@ impl<C: MusicCategory> MusicBundle<C> {
 
     /// Creates a new music bundle with custom playback settings.
     #[must_use]
-    pub fn with_settings(handle: Handle<AudioSource>, category: C, playback: PlaybackSettings) -> Self {
+    pub fn with_settings(
+        handle: Handle<AudioSource>,
+        category: C,
+        playback: PlaybackSettings,
+    ) -> Self {
         Self {
             audio_player: AudioPlayer(handle),
             playback,
