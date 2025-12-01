@@ -105,8 +105,8 @@ mod systems;
 mod traits;
 
 pub use bundles::{MusicBundle, SfxBundle, DEFAULT_CONCURRENCY_INTERVAL, DEFAULT_MAX_CONCURRENT};
-pub use components::{MaxConcurrent, PlaybackRandomizer, SoundEffectCounter};
-pub use events::{PlayMusic, PlaySfx};
+pub use components::{FadeOut, MaxConcurrent, PlaybackRandomizer, SoundEffectCounter};
+pub use events::{FadeOutMusic, PlayMusic, PlaySfx, StopAllMusic, StopMusic};
 pub use traits::{AudioCategory, AudioConfigTrait, MusicCategory, SfxCategory};
 
 use bevy::prelude::*;
@@ -150,6 +150,7 @@ where
         // Register types
         app.register_type::<MaxConcurrent>();
         app.register_type::<SoundEffectCounter>();
+        app.register_type::<FadeOut>();
 
         // Initialize resources
         app.init_resource::<SoundEffectCounter>();
@@ -157,6 +158,9 @@ where
         // Add events
         app.add_event::<PlayMusic<M>>();
         app.add_event::<PlaySfx<S>>();
+        app.add_event::<StopMusic<M>>();
+        app.add_event::<StopAllMusic<M>>();
+        app.add_event::<FadeOutMusic<M>>();
 
         // Add systems
         app.add_systems(
@@ -170,9 +174,14 @@ where
                 systems::update_sfx_volume::<S, C>.run_if(resource_changed::<C>),
                 // Concurrency limiting
                 systems::enforce_sfx_concurrency::<S>,
+                // Fade processing
+                systems::process_fade_outs,
                 // Event handling
                 events::handle_play_music_events::<M>,
                 events::handle_play_sfx_events::<S>,
+                events::handle_stop_music_events::<M>,
+                events::handle_stop_all_music_events::<M>,
+                events::handle_fade_out_music_events::<M>,
             ),
         );
     }
@@ -195,6 +204,7 @@ impl Plugin for DmgAudioMinimalPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<MaxConcurrent>();
         app.register_type::<SoundEffectCounter>();
+        app.register_type::<FadeOut>();
         app.init_resource::<SoundEffectCounter>();
     }
 }
@@ -203,22 +213,27 @@ impl Plugin for DmgAudioMinimalPlugin {
 pub mod audio_systems {
     pub use crate::systems::{
         apply_volume_to_new_music, apply_volume_to_new_sfx, enforce_sfx_concurrency,
-        update_music_volume, update_sfx_volume,
+        process_fade_outs, update_music_volume, update_sfx_volume,
     };
 }
 
 /// Re-export of event handler functions for custom scheduling.
 pub mod audio_events {
-    pub use crate::events::{handle_play_music_events, handle_play_sfx_events};
+    pub use crate::events::{
+        handle_fade_out_music_events, handle_play_music_events, handle_play_sfx_events,
+        handle_stop_all_music_events, handle_stop_music_events,
+    };
 }
 
 /// Prelude module for convenient imports.
+///
+/// Import with `use dmg_audio::prelude::*;` for quick access to all commonly used types.
 pub mod prelude {
-    pub use crate::bundles::{MusicBundle, SfxBundle};
-    pub use crate::components::{MaxConcurrent, PlaybackRandomizer};
-    pub use crate::events::{PlayMusic, PlaySfx};
+    pub use crate::bundles::{MusicBundle, SfxBundle, DEFAULT_MAX_CONCURRENT};
+    pub use crate::components::{FadeOut, MaxConcurrent, PlaybackRandomizer, SoundEffectCounter};
+    pub use crate::events::{FadeOutMusic, PlayMusic, PlaySfx, StopAllMusic, StopMusic};
     pub use crate::traits::{AudioCategory, AudioConfigTrait, MusicCategory, SfxCategory};
-    pub use crate::DmgAudioPlugin;
+    pub use crate::{DmgAudioMinimalPlugin, DmgAudioPlugin};
 }
 
 #[cfg(test)]

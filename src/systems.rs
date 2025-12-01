@@ -8,7 +8,7 @@ use crate::traits::{AudioConfigTrait, MusicCategory, SfxCategory};
 /// Applies volume settings to newly spawned music entities.
 ///
 /// This system runs on `Added<AudioSink>` to apply the correct volume
-/// based on the music category and master volume settings.
+/// based on the music category, master volume, and mute state.
 pub fn apply_volume_to_new_music<M, C>(
     config: Res<C>,
     mut query: Query<(&M, &PlaybackSettings, &mut AudioSink), Added<AudioSink>>,
@@ -19,7 +19,7 @@ pub fn apply_volume_to_new_music<M, C>(
     for (category, playback, mut sink) in &mut query {
         let category_volume = category.volume_multiplier(&config);
         let playback_volume = extract_linear_volume(playback.volume);
-        let final_volume = config.master_volume() * category_volume * playback_volume;
+        let final_volume = config.effective_volume() * category_volume * playback_volume;
         sink.set_volume(Volume::Linear(final_volume));
     }
 }
@@ -27,7 +27,7 @@ pub fn apply_volume_to_new_music<M, C>(
 /// Applies volume settings to newly spawned sound effect entities.
 ///
 /// This system runs on `Added<AudioSink>` to apply the correct volume
-/// based on the sound effect category and master volume settings.
+/// based on the sound effect category, master volume, and mute state.
 pub fn apply_volume_to_new_sfx<S, C>(
     config: Res<C>,
     mut query: Query<(&S, &PlaybackSettings, &mut AudioSink), Added<AudioSink>>,
@@ -38,7 +38,7 @@ pub fn apply_volume_to_new_sfx<S, C>(
     for (category, playback, mut sink) in &mut query {
         let category_volume = category.volume_multiplier(&config);
         let playback_volume = extract_linear_volume(playback.volume);
-        let final_volume = config.master_volume() * category_volume * playback_volume;
+        let final_volume = config.effective_volume() * category_volume * playback_volume;
         sink.set_volume(Volume::Linear(final_volume));
     }
 }
@@ -46,6 +46,7 @@ pub fn apply_volume_to_new_sfx<S, C>(
 /// Updates volume on all active music entities when config changes.
 ///
 /// This system should be run with `run_if(resource_changed::<C>)`.
+/// Respects the mute state via [`AudioConfigTrait::effective_volume`].
 pub fn update_music_volume<M, C>(
     config: Res<C>,
     mut query: Query<(&M, &PlaybackSettings, &mut AudioSink)>,
@@ -56,7 +57,7 @@ pub fn update_music_volume<M, C>(
     for (category, playback, mut sink) in &mut query {
         let category_volume = category.volume_multiplier(&config);
         let playback_volume = extract_linear_volume(playback.volume);
-        let final_volume = config.master_volume() * category_volume * playback_volume;
+        let final_volume = config.effective_volume() * category_volume * playback_volume;
         sink.set_volume(Volume::Linear(final_volume));
     }
 }
@@ -64,6 +65,7 @@ pub fn update_music_volume<M, C>(
 /// Updates volume on all active sound effect entities when config changes.
 ///
 /// This system should be run with `run_if(resource_changed::<C>)`.
+/// Respects the mute state via [`AudioConfigTrait::effective_volume`].
 pub fn update_sfx_volume<S, C>(
     config: Res<C>,
     mut query: Query<(&S, &PlaybackSettings, &mut AudioSink)>,
@@ -74,7 +76,7 @@ pub fn update_sfx_volume<S, C>(
     for (category, playback, mut sink) in &mut query {
         let category_volume = category.volume_multiplier(&config);
         let playback_volume = extract_linear_volume(playback.volume);
-        let final_volume = config.master_volume() * category_volume * playback_volume;
+        let final_volume = config.effective_volume() * category_volume * playback_volume;
         sink.set_volume(Volume::Linear(final_volume));
     }
 }
@@ -102,6 +104,26 @@ pub fn enforce_sfx_concurrency<S: SfxCategory>(
             commands.entity(entity).despawn();
         } else {
             *kept_so_far += 1;
+        }
+    }
+}
+
+/// Processes audio fade-outs.
+///
+/// This system updates the volume of entities with [`FadeOut`](crate::components::FadeOut)
+/// components, gradually reducing volume and despawning when complete.
+pub fn process_fade_outs(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut query: Query<(Entity, &mut crate::components::FadeOut, &mut AudioSink)>,
+) {
+    for (entity, mut fade, mut sink) in &mut query {
+        fade.timer.tick(time.delta());
+
+        if fade.is_finished() {
+            commands.entity(entity).despawn();
+        } else {
+            sink.set_volume(Volume::Linear(fade.current_volume()));
         }
     }
 }
