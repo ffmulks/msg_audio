@@ -148,3 +148,77 @@ pub trait AudioConfigTrait: Resource + Clone + Default + Send + Sync + 'static {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[derive(Resource, Clone, Default)]
+    struct TestConfigWithMute {
+        master: f32,
+        muted: bool,
+    }
+
+    impl AudioConfigTrait for TestConfigWithMute {
+        fn master_volume(&self) -> f32 {
+            self.master
+        }
+
+        fn is_muted(&self) -> bool {
+            self.muted
+        }
+    }
+
+    #[derive(Resource, Clone, Default)]
+    struct TestConfigWithoutMute {
+        master: f32,
+    }
+
+    impl AudioConfigTrait for TestConfigWithoutMute {
+        fn master_volume(&self) -> f32 {
+            self.master
+        }
+        // Uses default is_muted() which returns false
+    }
+
+    #[test]
+    fn effective_volume_when_not_muted() {
+        let config = TestConfigWithMute {
+            master: 0.8,
+            muted: false,
+        };
+
+        assert!((config.effective_volume() - 0.8).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn effective_volume_when_muted() {
+        let config = TestConfigWithMute {
+            master: 0.8,
+            muted: true,
+        };
+
+        assert!((config.effective_volume() - 0.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn default_is_muted_returns_false() {
+        let config = TestConfigWithoutMute { master: 0.5 };
+
+        assert!(!config.is_muted());
+        assert!((config.effective_volume() - 0.5).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn master_volume_is_independent_of_mute() {
+        let config = TestConfigWithMute {
+            master: 0.75,
+            muted: true,
+        };
+
+        // master_volume() returns the raw value regardless of mute state
+        assert!((config.master_volume() - 0.75).abs() < f32::EPSILON);
+        // effective_volume() accounts for mute
+        assert!((config.effective_volume() - 0.0).abs() < f32::EPSILON);
+    }
+}

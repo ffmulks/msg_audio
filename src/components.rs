@@ -244,4 +244,60 @@ mod tests {
             _ => panic!("Expected linear volume"),
         }
     }
+
+    #[test]
+    fn fade_out_new() {
+        let fade = FadeOut::new(Duration::from_secs(2));
+
+        assert_eq!(fade.timer.duration(), Duration::from_secs(2));
+        assert_eq!(fade.timer.mode(), TimerMode::Once);
+        assert!((fade.initial_volume - 1.0).abs() < f32::EPSILON);
+        assert!(!fade.is_finished());
+    }
+
+    #[test]
+    fn fade_out_from_secs() {
+        let fade = FadeOut::from_secs(1.5);
+
+        assert!((fade.timer.duration().as_secs_f32() - 1.5).abs() < 0.001);
+    }
+
+    #[test]
+    fn fade_out_with_initial_volume() {
+        let fade = FadeOut::new(Duration::from_secs(1)).with_initial_volume(0.8);
+
+        assert!((fade.initial_volume - 0.8).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn fade_out_current_volume_at_start() {
+        let fade = FadeOut::new(Duration::from_secs(2)).with_initial_volume(0.8);
+
+        // At start (timer progress = 0), volume should be initial_volume
+        assert!((fade.current_volume() - 0.8).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn fade_out_current_volume_at_end() {
+        let mut fade = FadeOut::new(Duration::from_millis(100)).with_initial_volume(1.0);
+
+        // Tick the timer to completion
+        fade.timer.tick(Duration::from_millis(100));
+
+        // At end (timer progress = 1), volume should be 0
+        assert!(fade.is_finished());
+        assert!((fade.current_volume() - 0.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn fade_out_current_volume_midway() {
+        let mut fade = FadeOut::new(Duration::from_millis(100)).with_initial_volume(1.0);
+
+        // Tick to 50%
+        fade.timer.tick(Duration::from_millis(50));
+
+        // At midway, volume should be ~0.5
+        let vol = fade.current_volume();
+        assert!(vol > 0.4 && vol < 0.6, "Expected ~0.5, got {}", vol);
+    }
 }

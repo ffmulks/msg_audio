@@ -328,6 +328,14 @@ mod tests {
         UI,
     }
 
+    #[derive(Component, Clone, Copy, Default, Debug, PartialEq, Eq, Reflect)]
+    #[reflect(Component)]
+    enum TestMusic {
+        #[default]
+        MainMenu,
+        Gameplay,
+    }
+
     #[derive(Resource, Clone, Default)]
     struct TestConfig;
 
@@ -340,6 +348,15 @@ mod tests {
 
     impl SfxCategory for TestSfx {}
 
+    impl crate::traits::AudioCategory for TestMusic {
+        type Config = TestConfig;
+        fn volume_multiplier(&self, _: &Self::Config) -> f32 {
+            1.0
+        }
+    }
+
+    impl MusicCategory for TestMusic {}
+
     #[test]
     fn play_sfx_default_max_concurrent() {
         let event = PlaySfx::new(Handle::default(), TestSfx::UI);
@@ -350,5 +367,52 @@ mod tests {
     fn play_sfx_with_max_concurrent() {
         let event = PlaySfx::new(Handle::default(), TestSfx::UI).with_max_concurrent(3);
         assert_eq!(event.max_concurrent, 3);
+    }
+
+    #[test]
+    fn play_music_defaults_to_loop() {
+        use bevy::audio::PlaybackMode;
+
+        let event = PlayMusic::new(Handle::default(), TestMusic::MainMenu);
+        assert!(matches!(event.playback.mode, PlaybackMode::Loop));
+    }
+
+    #[test]
+    fn play_music_with_playback_settings() {
+        let event = PlayMusic::new(Handle::default(), TestMusic::Gameplay)
+            .with_playback(PlaybackSettings::ONCE);
+
+        assert!(matches!(
+            event.playback.mode,
+            bevy::audio::PlaybackMode::Once
+        ));
+    }
+
+    #[test]
+    fn stop_music_new() {
+        let event = StopMusic::new(TestMusic::Gameplay);
+        assert_eq!(event.category, TestMusic::Gameplay);
+    }
+
+    #[test]
+    fn stop_all_music_default() {
+        let _event: StopAllMusic<TestMusic> = StopAllMusic::default();
+        // Just verify it can be created
+    }
+
+    #[test]
+    fn fade_out_music_new() {
+        let event = FadeOutMusic::new(TestMusic::MainMenu, Duration::from_secs(2));
+
+        assert_eq!(event.category, TestMusic::MainMenu);
+        assert_eq!(event.duration, Duration::from_secs(2));
+    }
+
+    #[test]
+    fn fade_out_music_from_secs() {
+        let event = FadeOutMusic::from_secs(TestMusic::Gameplay, 1.5);
+
+        assert_eq!(event.category, TestMusic::Gameplay);
+        assert!((event.duration.as_secs_f32() - 1.5).abs() < 0.001);
     }
 }
