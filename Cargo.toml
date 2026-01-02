@@ -2,7 +2,7 @@
 name = "msg_audio"
 version = "0.1.0"
 edition = "2021"
-authors = ["Molecular Sadism Games", "ffmulks <63452434+ffmulks@users.noreply.github.com>"]
+authors = ["ffmulks <63452434+ffmulks@users.noreply.github.com>"]
 description = "A flexible audio management crate for Bevy games with volume control, concurrency limiting, and pluggable audio types"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/ffmulks/msg_audio"
