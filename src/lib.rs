@@ -1,4 +1,4 @@
-//! # dmg_audio
+//! # msg_audio
 //!
 //! A flexible audio management crate for Bevy games with:
 //! - Volume control with master and category-based levels
@@ -12,7 +12,7 @@
 //!
 //! ```rust,ignore
 //! use bevy::prelude::*;
-//! use dmg_audio::{AudioCategory, MusicCategory, SfxCategory, AudioConfigTrait};
+//! use msg_audio::{AudioCategory, MusicCategory, SfxCategory, AudioConfigTrait};
 //!
 //! // Music categories
 //! #[derive(Component, Clone, Copy, Default, Debug, PartialEq, Eq, Reflect)]
@@ -76,7 +76,7 @@
 //! 2. Add the audio plugin:
 //!
 //! ```rust,ignore
-//! app.add_plugins(DmgAudioPlugin::<GameMusic, GameSfx, GameAudioConfig>::default());
+//! app.add_plugins(MsgAudioPlugin::<GameMusic, GameSfx, GameAudioConfig>::default());
 //! ```
 //!
 //! 3. Play audio:
@@ -128,10 +128,10 @@ use bevy::prelude::*;
 /// # Example
 ///
 /// ```rust,ignore
-/// app.add_plugins(DmgAudioPlugin::<GameMusic, GameSfx, GameAudioConfig>::default());
+/// app.add_plugins(MsgAudioPlugin::<GameMusic, GameSfx, GameAudioConfig>::default());
 /// ```
 #[derive(Default)]
-pub struct DmgAudioPlugin<M, S, C>
+pub struct MsgAudioPlugin<M, S, C>
 where
     M: MusicCategory<Config = C>,
     S: SfxCategory<Config = C>,
@@ -140,7 +140,7 @@ where
     _phantom: std::marker::PhantomData<(M, S, C)>,
 }
 
-impl<M, S, C> Plugin for DmgAudioPlugin<M, S, C>
+impl<M, S, C> Plugin for MsgAudioPlugin<M, S, C>
 where
     M: MusicCategory<Config = C>,
     S: SfxCategory<Config = C>,
@@ -195,12 +195,12 @@ where
 /// # Example
 ///
 /// ```rust,ignore
-/// app.add_plugins(DmgAudioMinimalPlugin);
+/// app.add_plugins(MsgAudioMinimalPlugin);
 /// app.add_systems(Update, systems::apply_volume_to_new_music::<MyMusic, MyConfig>);
 /// ```
-pub struct DmgAudioMinimalPlugin;
+pub struct MsgAudioMinimalPlugin;
 
-impl Plugin for DmgAudioMinimalPlugin {
+impl Plugin for MsgAudioMinimalPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<MaxConcurrent>();
         app.register_type::<SoundEffectCounter>();
@@ -227,13 +227,13 @@ pub mod audio_events {
 
 /// Prelude module for convenient imports.
 ///
-/// Import with `use dmg_audio::prelude::*;` for quick access to all commonly used types.
+/// Import with `use msg_audio::prelude::*;` for quick access to all commonly used types.
 pub mod prelude {
     pub use crate::bundles::{MusicBundle, SfxBundle, DEFAULT_MAX_CONCURRENT};
     pub use crate::components::{FadeOut, MaxConcurrent, PlaybackRandomizer, SoundEffectCounter};
     pub use crate::events::{FadeOutMusic, PlayMusic, PlaySfx, StopAllMusic, StopMusic};
     pub use crate::traits::{AudioCategory, AudioConfigTrait, MusicCategory, SfxCategory};
-    pub use crate::{DmgAudioMinimalPlugin, DmgAudioPlugin};
+    pub use crate::{MsgAudioMinimalPlugin, MsgAudioPlugin};
 }
 
 #[cfg(test)]
@@ -289,7 +289,7 @@ mod tests {
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);
         app.init_resource::<TestConfig>();
-        app.add_plugins(DmgAudioPlugin::<TestMusic, TestSfx, TestConfig>::default());
+        app.add_plugins(MsgAudioPlugin::<TestMusic, TestSfx, TestConfig>::default());
         app.update();
     }
 
@@ -297,7 +297,7 @@ mod tests {
     fn minimal_plugin_registers_resources() {
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);
-        app.add_plugins(DmgAudioMinimalPlugin);
+        app.add_plugins(MsgAudioMinimalPlugin);
         app.update();
 
         assert!(app.world().contains_resource::<SoundEffectCounter>());
