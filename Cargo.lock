@@ -1858,15 +1858,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "dmg_audio"
-version = "0.1.0"
-dependencies = [
- "bevy",
- "rand 0.9.2",
- "serde",
-]
-
-[[package]]
 name = "document-features"
 version = "0.2.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2759,6 +2750,15 @@ checksum = "80986bbbcf925ebd3be54c26613d861255284584501595cf418320c078945608"
 dependencies = [
  "num-traits",
  "pxfm",
+]
+
+[[package]]
+name = "msg_audio"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "rand 0.9.2",
+ "serde",
 ]
 
 [[package]]

@@ -1,4 +1,4 @@
-# dmg_audio
+# msg_audio
 
 A flexible, type-safe audio management crate for [Bevy](https://bevyengine.org/) games.
 
@@ -17,14 +17,14 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-dmg_audio = "0.1"
+msg_audio = "0.1"
 ```
 
 With serde support for configuration serialization:
 
 ```toml
 [dependencies]
-dmg_audio = { version = "0.1", features = ["serde"] }
+msg_audio = { version = "0.1", features = ["serde"] }
 ```
 
 ## Quick Start
@@ -33,7 +33,7 @@ dmg_audio = { version = "0.1", features = ["serde"] }
 
 ```rust
 use bevy::prelude::*;
-use dmg_audio::{AudioCategory, MusicCategory, SfxCategory, AudioConfigTrait};
+use msg_audio::{AudioCategory, MusicCategory, SfxCategory, AudioConfigTrait};
 
 // Music categories for different game states
 #[derive(Component, Clone, Copy, Default, Debug, PartialEq, Eq, Reflect)]
@@ -92,13 +92,13 @@ impl SfxCategory for GameSfx {}
 ### 2. Add the Plugin
 
 ```rust
-use dmg_audio::DmgAudioPlugin;
+use msg_audio::MsgAudioPlugin;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .init_resource::<GameAudioConfig>()
-        .add_plugins(DmgAudioPlugin::<GameMusic, GameSfx, GameAudioConfig>::default())
+        .add_plugins(MsgAudioPlugin::<GameMusic, GameSfx, GameAudioConfig>::default())
         .run();
 }
 ```
@@ -108,7 +108,7 @@ fn main() {
 **Component-based (direct spawning):**
 
 ```rust
-use dmg_audio::{MusicBundle, SfxBundle};
+use msg_audio::{MusicBundle, SfxBundle};
 
 fn spawn_audio(mut commands: Commands, assets: Res<AssetServer>) {
     // Play background music (loops by default)
@@ -135,7 +135,7 @@ fn spawn_audio(mut commands: Commands, assets: Res<AssetServer>) {
 **Event-based (fire-and-forget):**
 
 ```rust
-use dmg_audio::{PlayMusic, PlaySfx, StopMusic, FadeOutMusic};
+use msg_audio::{PlayMusic, PlaySfx, StopMusic, FadeOutMusic};
 use std::time::Duration;
 
 fn play_sound(mut sfx_events: EventWriter<PlaySfx<GameSfx>>, assets: Res<AssetServer>) {
@@ -196,19 +196,19 @@ fn fade_to_new_track(mut events: EventWriter<FadeOutMusic<GameMusic>>) {
 
 | Plugin | Purpose |
 |--------|---------|
-| `DmgAudioPlugin<M, S, C>` | Full-featured plugin with all systems |
-| `DmgAudioMinimalPlugin` | Minimal plugin for custom system scheduling |
+| `MsgAudioPlugin<M, S, C>` | Full-featured plugin with all systems |
+| `MsgAudioMinimalPlugin` | Minimal plugin for custom system scheduling |
 
 ## Advanced Usage
 
 ### Custom System Scheduling
 
-Use `DmgAudioMinimalPlugin` for manual control:
+Use `MsgAudioMinimalPlugin` for manual control:
 
 ```rust
-use dmg_audio::{DmgAudioMinimalPlugin, audio_systems, audio_events};
+use msg_audio::{MsgAudioMinimalPlugin, audio_systems, audio_events};
 
-app.add_plugins(DmgAudioMinimalPlugin);
+app.add_plugins(MsgAudioMinimalPlugin);
 app.add_systems(Update, (
     audio_systems::apply_volume_to_new_music::<GameMusic, GameAudioConfig>,
     audio_systems::apply_volume_to_new_sfx::<GameSfx, GameAudioConfig>,
@@ -306,7 +306,7 @@ Where:
 
 ## Bevy Compatibility
 
-| dmg_audio | Bevy |
+| msg_audio | Bevy |
 |-----------|------|
 | 0.1       | 0.16 |
 
