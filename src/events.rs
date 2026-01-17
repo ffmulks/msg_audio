@@ -1,16 +1,16 @@
-//! Event-based audio playback API.
+//! Message-based audio playback API.
 //!
-//! This module provides events for triggering audio playback without
+//! This module provides messages for triggering audio playback without
 //! directly spawning entities. Useful for fire-and-forget sounds.
 //!
-//! ## Music Events
+//! ## Music Messages
 //!
 //! - [`PlayMusic`] - Start playing a music track
 //! - [`StopMusic`] - Stop a specific music category
 //! - [`StopAllMusic`] - Stop all currently playing music
 //! - [`FadeOutMusic`] - Gradually fade out music over time
 //!
-//! ## Sound Effect Events
+//! ## Sound Effect Messages
 //!
 //! - [`PlaySfx`] - Play a sound effect
 
@@ -20,20 +20,20 @@ use std::time::Duration;
 use crate::components::PlaybackRandomizer;
 use crate::traits::{MusicCategory, SfxCategory};
 
-/// Event to request playing a music track.
+/// Message to request playing a music track.
 ///
 /// When triggered, spawns a music entity with the specified settings.
 ///
 /// # Example
 ///
 /// ```rust,ignore
-/// use dmg_audio::PlayMusic;
+/// use msg_audio::PlayMusic;
 ///
-/// fn start_level_music(mut events: EventWriter<PlayMusic<MyMusicCategory>>) {
-///     events.write(PlayMusic::new(music_handle, MyMusicCategory::Exploration));
+/// fn start_level_music(mut messages: MessageWriter<PlayMusic<MyMusicCategory>>) {
+///     messages.write(PlayMusic::new(music_handle, MyMusicCategory::Exploration));
 /// }
 /// ```
-#[derive(Event, Clone)]
+#[derive(Message, Clone)]
 pub struct PlayMusic<M: MusicCategory> {
     /// Handle to the audio source.
     pub handle: Handle<AudioSource>,
@@ -62,7 +62,7 @@ impl<M: MusicCategory> PlayMusic<M> {
     }
 }
 
-/// Event to stop music of a specific category.
+/// Message to stop music of a specific category.
 ///
 /// When triggered, immediately stops and despawns all music entities
 /// matching the specified category.
@@ -70,13 +70,13 @@ impl<M: MusicCategory> PlayMusic<M> {
 /// # Example
 ///
 /// ```rust,ignore
-/// use dmg_audio::StopMusic;
+/// use msg_audio::StopMusic;
 ///
-/// fn stop_combat_music(mut events: EventWriter<StopMusic<MyMusicCategory>>) {
-///     events.write(StopMusic::new(MyMusicCategory::Combat));
+/// fn stop_combat_music(mut messages: MessageWriter<StopMusic<MyMusicCategory>>) {
+///     messages.write(StopMusic::new(MyMusicCategory::Combat));
 /// }
 /// ```
-#[derive(Event, Clone)]
+#[derive(Message, Clone)]
 pub struct StopMusic<M: MusicCategory> {
     /// The music category to stop.
     pub category: M,
@@ -90,7 +90,7 @@ impl<M: MusicCategory> StopMusic<M> {
     }
 }
 
-/// Event to stop all currently playing music.
+/// Message to stop all currently playing music.
 ///
 /// When triggered, immediately stops and despawns all music entities
 /// regardless of category.
@@ -98,18 +98,18 @@ impl<M: MusicCategory> StopMusic<M> {
 /// # Example
 ///
 /// ```rust,ignore
-/// use dmg_audio::StopAllMusic;
+/// use msg_audio::StopAllMusic;
 ///
-/// fn mute_all_music(mut events: EventWriter<StopAllMusic<MyMusicCategory>>) {
-///     events.write(StopAllMusic::default());
+/// fn mute_all_music(mut messages: MessageWriter<StopAllMusic<MyMusicCategory>>) {
+///     messages.write(StopAllMusic::default());
 /// }
 /// ```
-#[derive(Event, Clone, Default)]
+#[derive(Message, Clone, Default)]
 pub struct StopAllMusic<M: MusicCategory> {
     _phantom: std::marker::PhantomData<M>,
 }
 
-/// Event to fade out music of a specific category.
+/// Message to fade out music of a specific category.
 ///
 /// Gradually reduces the volume of matching music entities over the
 /// specified duration, then despawns them.
@@ -117,17 +117,17 @@ pub struct StopAllMusic<M: MusicCategory> {
 /// # Example
 ///
 /// ```rust,ignore
-/// use dmg_audio::FadeOutMusic;
+/// use msg_audio::FadeOutMusic;
 /// use std::time::Duration;
 ///
-/// fn fade_to_new_track(mut events: EventWriter<FadeOutMusic<MyMusicCategory>>) {
-///     events.write(FadeOutMusic::new(
+/// fn fade_to_new_track(mut messages: MessageWriter<FadeOutMusic<MyMusicCategory>>) {
+///     messages.write(FadeOutMusic::new(
 ///         MyMusicCategory::Exploration,
 ///         Duration::from_secs(2),
 ///     ));
 /// }
 /// ```
-#[derive(Event, Clone)]
+#[derive(Message, Clone)]
 pub struct FadeOutMusic<M: MusicCategory> {
     /// The music category to fade out.
     pub category: M,
@@ -152,24 +152,24 @@ impl<M: MusicCategory> FadeOutMusic<M> {
     }
 }
 
-/// Event to request playing a sound effect.
+/// Message to request playing a sound effect.
 ///
 /// When triggered, spawns a sound effect entity with the specified settings.
 ///
 /// # Example
 ///
 /// ```rust,ignore
-/// use dmg_audio::PlaySfx;
+/// use msg_audio::PlaySfx;
 ///
-/// fn play_hit_sound(mut events: EventWriter<PlaySfx<MySfxCategory>>) {
-///     events.write(
+/// fn play_hit_sound(mut messages: MessageWriter<PlaySfx<MySfxCategory>>) {
+///     messages.write(
 ///         PlaySfx::new(hit_sound_handle, MySfxCategory::Gameplay)
 ///             .randomized()
 ///             .with_max_concurrent(3)
 ///     );
 /// }
 /// ```
-#[derive(Event, Clone)]
+#[derive(Message, Clone)]
 pub struct PlaySfx<S: SfxCategory> {
     /// Handle to the audio source.
     pub handle: Handle<AudioSource>,
@@ -233,12 +233,12 @@ impl<S: SfxCategory> PlaySfx<S> {
     }
 }
 
-/// System that handles `PlayMusic` events by spawning music entities.
+/// System that handles `PlayMusic` messages by spawning music entities.
 pub fn handle_play_music_events<M: MusicCategory>(
     mut commands: Commands,
-    mut events: EventReader<PlayMusic<M>>,
+    mut messages: MessageReader<PlayMusic<M>>,
 ) {
-    for event in events.read() {
+    for event in messages.read() {
         commands.spawn((
             AudioPlayer(event.handle.clone()),
             event.playback,
@@ -247,14 +247,14 @@ pub fn handle_play_music_events<M: MusicCategory>(
     }
 }
 
-/// System that handles `PlaySfx` events by spawning sound effect entities.
+/// System that handles `PlaySfx` messages by spawning sound effect entities.
 pub fn handle_play_sfx_events<S: SfxCategory>(
     mut commands: Commands,
-    mut events: EventReader<PlaySfx<S>>,
+    mut messages: MessageReader<PlaySfx<S>>,
 ) {
     use crate::components::MaxConcurrent;
 
-    for event in events.read() {
+    for event in messages.read() {
         commands.spawn((
             AudioPlayer(event.handle.clone()),
             event.playback,
@@ -264,13 +264,13 @@ pub fn handle_play_sfx_events<S: SfxCategory>(
     }
 }
 
-/// System that handles `StopMusic` events by despawning matching music entities.
+/// System that handles `StopMusic` messages by despawning matching music entities.
 pub fn handle_stop_music_events<M: MusicCategory>(
     mut commands: Commands,
-    mut events: EventReader<StopMusic<M>>,
+    mut messages: MessageReader<StopMusic<M>>,
     query: Query<(Entity, &M)>,
 ) {
-    for event in events.read() {
+    for event in messages.read() {
         for (entity, category) in &query {
             if *category == event.category {
                 commands.entity(entity).despawn();
@@ -279,29 +279,29 @@ pub fn handle_stop_music_events<M: MusicCategory>(
     }
 }
 
-/// System that handles `StopAllMusic` events by despawning all music entities.
+/// System that handles `StopAllMusic` messages by despawning all music entities.
 pub fn handle_stop_all_music_events<M: MusicCategory>(
     mut commands: Commands,
-    mut events: EventReader<StopAllMusic<M>>,
+    mut messages: MessageReader<StopAllMusic<M>>,
     query: Query<Entity, With<M>>,
 ) {
-    for _ in events.read() {
+    for _ in messages.read() {
         for entity in &query {
             commands.entity(entity).despawn();
         }
     }
 }
 
-/// System that handles `FadeOutMusic` events by adding fade-out components.
+/// System that handles `FadeOutMusic` messages by adding fade-out components.
 pub fn handle_fade_out_music_events<M: MusicCategory>(
     mut commands: Commands,
-    mut events: EventReader<FadeOutMusic<M>>,
+    mut messages: MessageReader<FadeOutMusic<M>>,
     query: Query<(Entity, &M, &AudioSink)>,
 ) {
     use crate::components::FadeOut;
     use bevy::audio::Volume;
 
-    for event in events.read() {
+    for event in messages.read() {
         for (entity, category, sink) in &query {
             if *category == event.category {
                 // Get current volume to use as initial fade volume

@@ -86,8 +86,8 @@
 //! commands.spawn(MusicBundle::new(music_handle, GameMusic::Gameplay));
 //! commands.spawn(SfxBundle::new(sfx_handle, GameSfx::UI).randomized());
 //!
-//! // Event-based
-//! events.write(PlaySfx::new(sfx_handle, GameSfx::Gameplay));
+//! // Message-based
+//! messages.write(PlaySfx::new(sfx_handle, GameSfx::Gameplay));
 //! ```
 //!
 //! ## Features
@@ -155,12 +155,12 @@ where
         // Initialize resources
         app.init_resource::<SoundEffectCounter>();
 
-        // Add events
-        app.add_event::<PlayMusic<M>>();
-        app.add_event::<PlaySfx<S>>();
-        app.add_event::<StopMusic<M>>();
-        app.add_event::<StopAllMusic<M>>();
-        app.add_event::<FadeOutMusic<M>>();
+        // Add messages (renamed from events in Bevy 0.17)
+        app.add_message::<PlayMusic<M>>();
+        app.add_message::<PlaySfx<S>>();
+        app.add_message::<StopMusic<M>>();
+        app.add_message::<StopAllMusic<M>>();
+        app.add_message::<FadeOutMusic<M>>();
 
         // Add systems
         app.add_systems(

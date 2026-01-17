@@ -118,7 +118,7 @@ impl FadeOut {
     /// Returns true if the fade has completed.
     #[must_use]
     pub fn is_finished(&self) -> bool {
-        self.timer.finished()
+        self.timer.is_finished()
     }
 }
 

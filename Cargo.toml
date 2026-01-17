@@ -1,6 +1,6 @@
 [package]
 name = "msg_audio"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 authors = ["ffmulks <63452434+ffmulks@users.noreply.github.com>"]
 description = "A flexible audio management crate for Bevy games with volume control, concurrency limiting, and pluggable audio types"
@@ -15,7 +15,7 @@ default = []
 serde = ["dep:serde"]
 
 [dependencies]
-bevy = "0.16"
+bevy = "0.17"
 rand = "0.9.2"
 serde = { version = "1.0", features = ["derive"], optional = true }
 
