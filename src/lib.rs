@@ -105,7 +105,9 @@ mod systems;
 mod traits;
 
 pub use bundles::{MusicBundle, SfxBundle, DEFAULT_CONCURRENCY_INTERVAL, DEFAULT_MAX_CONCURRENT};
-pub use components::{FadeOut, MaxConcurrent, PlaybackRandomizer, SoundEffectCounter};
+pub use components::{
+    spawn_audio_entity, Audio, FadeOut, MaxConcurrent, PlaybackRandomizer, SoundEffectCounter,
+};
 pub use events::{FadeOutMusic, PlayMusic, PlaySfx, StopAllMusic, StopMusic};
 pub use traits::{AudioCategory, AudioConfigTrait, MusicCategory, SfxCategory};
 
@@ -148,12 +150,18 @@ where
 {
     fn build(&self, app: &mut App) {
         // Register types
+        app.register_type::<Audio>();
         app.register_type::<MaxConcurrent>();
         app.register_type::<SoundEffectCounter>();
         app.register_type::<FadeOut>();
 
         // Initialize resources
         app.init_resource::<SoundEffectCounter>();
+
+        // Spawn the Audio parent entity
+        app.add_systems(Startup, |mut commands: Commands| {
+            spawn_audio_entity(&mut commands);
+        });
 
         // Add messages (renamed from events in Bevy 0.17)
         app.add_message::<PlayMusic<M>>();
@@ -202,6 +210,7 @@ pub struct MsgAudioMinimalPlugin;
 
 impl Plugin for MsgAudioMinimalPlugin {
     fn build(&self, app: &mut App) {
+        app.register_type::<Audio>();
         app.register_type::<MaxConcurrent>();
         app.register_type::<SoundEffectCounter>();
         app.register_type::<FadeOut>();
@@ -230,7 +239,9 @@ pub mod audio_events {
 /// Import with `use msg_audio::prelude::*;` for quick access to all commonly used types.
 pub mod prelude {
     pub use crate::bundles::{MusicBundle, SfxBundle, DEFAULT_MAX_CONCURRENT};
-    pub use crate::components::{FadeOut, MaxConcurrent, PlaybackRandomizer, SoundEffectCounter};
+    pub use crate::components::{
+        spawn_audio_entity, Audio, FadeOut, MaxConcurrent, PlaybackRandomizer, SoundEffectCounter,
+    };
     pub use crate::events::{FadeOutMusic, PlayMusic, PlaySfx, StopAllMusic, StopMusic};
     pub use crate::traits::{AudioCategory, AudioConfigTrait, MusicCategory, SfxCategory};
     pub use crate::{MsgAudioMinimalPlugin, MsgAudioPlugin};
@@ -287,7 +298,7 @@ mod tests {
     #[test]
     fn plugin_builds_without_panic() {
         let mut app = App::new();
-        app.add_plugins(MinimalPlugins);
+        app.add_plugins((MinimalPlugins, AssetPlugin::default()));
         app.init_resource::<TestConfig>();
         app.add_plugins(MsgAudioPlugin::<TestMusic, TestSfx, TestConfig>::default());
         app.update();

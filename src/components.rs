@@ -4,6 +4,61 @@ use bevy::{audio::Volume, platform::collections::HashMap, prelude::*};
 use rand::prelude::*;
 use std::time::Duration;
 
+/// Marker component for the top-level Audio entity.
+///
+/// This entity serves as a parent for all audio entities (music and sound effects)
+/// that are spawned via the event/message API. This keeps the entity hierarchy
+/// organized and makes it easy to find or despawn all audio.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// use msg_audio::Audio;
+///
+/// // Spawn the audio entity (typically during game initialization)
+/// commands.spawn((
+///     Name::new("Audio"),
+///     Audio,
+///     Transform::default(),
+///     Visibility::default(),
+/// ));
+///
+/// // Or use the helper function
+/// msg_audio::spawn_audio_entity(&mut commands);
+/// ```
+#[derive(Component, Reflect, Debug, Default, Clone, Copy)]
+#[reflect(Component)]
+pub struct Audio;
+
+/// Spawns the top-level Audio entity that parents all audio spawned via messages.
+///
+/// Call this during your game initialization to create the audio container entity.
+/// Sound effects and music spawned via [`PlaySfx`] and [`PlayMusic`] messages
+/// will automatically become children of this entity.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// use msg_audio::spawn_audio_entity;
+///
+/// fn setup_audio(mut commands: Commands) {
+///     spawn_audio_entity(&mut commands);
+/// }
+/// ```
+///
+/// [`PlaySfx`]: crate::PlaySfx
+/// [`PlayMusic`]: crate::PlayMusic
+pub fn spawn_audio_entity(commands: &mut Commands) -> Entity {
+    commands
+        .spawn((
+            Name::new("Audio"),
+            Audio,
+            Transform::default(),
+            Visibility::default(),
+        ))
+        .id()
+}
+
 /// Component that limits the maximum concurrent instances of a sound.
 ///
 /// When more than `max` sounds with the same `handle` are playing,

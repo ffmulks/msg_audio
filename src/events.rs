@@ -17,8 +17,23 @@
 use bevy::prelude::*;
 use std::time::Duration;
 
-use crate::components::PlaybackRandomizer;
+use crate::components::{Audio, PlaybackRandomizer};
 use crate::traits::{MusicCategory, SfxCategory};
+
+/// Extracts a display name from an audio handle path.
+///
+/// Returns the filename without extension, or "Audio" if no path is available.
+fn audio_name_from_handle(asset_server: &AssetServer, handle: &Handle<AudioSource>) -> String {
+    asset_server
+        .get_path(handle)
+        .and_then(|path| {
+            path.path()
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .map(String::from)
+        })
+        .unwrap_or_else(|| "Audio".to_string())
+}
 
 /// Message to request playing a music track.
 ///
@@ -234,33 +249,59 @@ impl<S: SfxCategory> PlaySfx<S> {
 }
 
 /// System that handles `PlayMusic` messages by spawning music entities.
+///
+/// If an [`Audio`] entity exists, spawned music will be parented to it.
+/// Each spawned entity receives a `Name` component based on the audio file path.
 pub fn handle_play_music_events<M: MusicCategory>(
     mut commands: Commands,
+    asset_server: Res<AssetServer>,
     mut messages: MessageReader<PlayMusic<M>>,
+    audio_parent: Query<Entity, With<Audio>>,
 ) {
+    let parent = audio_parent.iter().next();
+
     for event in messages.read() {
-        commands.spawn((
+        let name = audio_name_from_handle(&asset_server, &event.handle);
+        let mut entity_commands = commands.spawn((
+            Name::new(name),
             AudioPlayer(event.handle.clone()),
             event.playback,
             event.category,
         ));
+
+        if let Some(parent_entity) = parent {
+            entity_commands.set_parent_in_place(parent_entity);
+        }
     }
 }
 
 /// System that handles `PlaySfx` messages by spawning sound effect entities.
+///
+/// If an [`Audio`] entity exists, spawned sound effects will be parented to it.
+/// Each spawned entity receives a `Name` component based on the audio file path.
 pub fn handle_play_sfx_events<S: SfxCategory>(
     mut commands: Commands,
+    asset_server: Res<AssetServer>,
     mut messages: MessageReader<PlaySfx<S>>,
+    audio_parent: Query<Entity, With<Audio>>,
 ) {
     use crate::components::MaxConcurrent;
 
+    let parent = audio_parent.iter().next();
+
     for event in messages.read() {
-        commands.spawn((
+        let name = audio_name_from_handle(&asset_server, &event.handle);
+        let mut entity_commands = commands.spawn((
+            Name::new(name),
             AudioPlayer(event.handle.clone()),
             event.playback,
             event.category,
             MaxConcurrent::new(event.handle.clone(), event.max_concurrent),
         ));
+
+        if let Some(parent_entity) = parent {
+            entity_commands.set_parent_in_place(parent_entity);
+        }
     }
 }
 

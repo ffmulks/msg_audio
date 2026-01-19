@@ -9,7 +9,9 @@ use bevy::prelude::*;
 ///
 /// This trait is implemented by both music and sound effect category types.
 /// Each category can have its own volume level in the audio configuration.
-pub trait AudioCategory: Component + Clone + Copy + Default + PartialEq + Send + Sync + 'static {
+pub trait AudioCategory:
+    Component + Clone + Copy + Default + PartialEq + Send + Sync + 'static
+{
     /// The configuration type that provides volume settings for this category.
     type Config: Resource;
 
