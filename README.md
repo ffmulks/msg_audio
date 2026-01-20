@@ -17,14 +17,14 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-msg_audio = "0.1"
+msg_audio = { git = "https://github.com/MolecularSadism/msg_audio", tag = "v0.2.0" }
 ```
 
 With serde support for configuration serialization:
 
 ```toml
 [dependencies]
-msg_audio = { version = "0.1", features = ["serde"] }
+msg_audio = { git = "https://github.com/MolecularSadism/msg_audio", tag = "v0.2.0", features = ["serde"] }
 ```
 
 ## Quick Start
@@ -304,11 +304,12 @@ Where:
 - `category_volume` - From `AudioCategory::volume_multiplier()`
 - `playback_volume` - From `PlaybackSettings::volume` (supports randomization)
 
-## Bevy Compatibility
+## Bevy Version Compatibility
 
-| msg_audio | Bevy |
-|-----------|------|
-| 0.1       | 0.16 |
+| `msg_audio` | Bevy |
+|-------------|------|
+| 0.2         | 0.17 |
+| 0.1         | 0.16 |
 
 ## Build Requirements
 
