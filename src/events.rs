@@ -26,12 +26,22 @@ use crate::traits::{MusicCategory, SfxCategory};
 ///
 /// # Example
 ///
-/// ```rust,ignore
-/// use msg_audio::PlayMusic;
-///
+/// ```rust
+/// # use bevy::prelude::*;
+/// # use msg_audio::prelude::*;
+/// # #[derive(Component, Clone, Copy, Default, Debug, PartialEq, Eq, Reflect)]
+/// # #[reflect(Component)]
+/// # enum MyMusicCategory { #[default] Exploration }
+/// # #[derive(Resource, Clone, Default)]
+/// # struct Cfg;
+/// # impl AudioConfigTrait for Cfg { fn master_volume(&self) -> f32 { 1.0 } }
+/// # impl AudioCategory for MyMusicCategory { type Config = Cfg; fn volume_multiplier(&self, _: &Cfg) -> f32 { 1.0 } }
+/// # impl MusicCategory for MyMusicCategory {}
 /// fn start_level_music(mut messages: MessageWriter<PlayMusic<MyMusicCategory>>) {
+///     let music_handle: Handle<AudioSource> = Handle::default();
 ///     messages.write(PlayMusic::new(music_handle, MyMusicCategory::Exploration));
 /// }
+/// # fn main() {}
 /// ```
 #[derive(Message, Clone)]
 pub struct PlayMusic<M: MusicCategory> {
@@ -41,6 +51,12 @@ pub struct PlayMusic<M: MusicCategory> {
     pub category: M,
     /// Custom playback settings (defaults to LOOP).
     pub playback: PlaybackSettings,
+    /// Transform for spatial audio positioning.
+    #[cfg(feature = "spatial")]
+    pub transform: Option<Transform>,
+    /// Parent entity to attach this audio to (implies spatial audio).
+    #[cfg(feature = "spatial")]
+    pub parent: Option<Entity>,
 }
 
 impl<M: MusicCategory> PlayMusic<M> {
@@ -51,6 +67,10 @@ impl<M: MusicCategory> PlayMusic<M> {
             handle,
             category,
             playback: PlaybackSettings::LOOP,
+            #[cfg(feature = "spatial")]
+            transform: None,
+            #[cfg(feature = "spatial")]
+            parent: None,
         }
     }
 
@@ -58,6 +78,31 @@ impl<M: MusicCategory> PlayMusic<M> {
     #[must_use]
     pub fn with_playback(mut self, playback: PlaybackSettings) -> Self {
         self.playback = playback;
+        self
+    }
+
+    /// Enables spatial audio at the given transform position.
+    ///
+    /// **Note:** A `SpatialListener` must exist in the world (e.g., on the camera or player).
+    #[cfg(feature = "spatial")]
+    #[must_use]
+    pub fn with_spatial(mut self, transform: Transform) -> Self {
+        self.playback = self.playback.with_spatial(true);
+        self.transform = Some(transform);
+        self
+    }
+
+    /// Attaches this audio to a parent entity as spatial audio.
+    ///
+    /// The audio entity will be spawned as a child of the parent (inheriting its transform)
+    /// and linked via [`AudioPlayerOf`](crate::components::AudioPlayerOf) for querying.
+    ///
+    /// **Note:** A `SpatialListener` must exist in the world (e.g., on the camera or player).
+    #[cfg(feature = "spatial")]
+    #[must_use]
+    pub fn with_parent(mut self, parent: Entity) -> Self {
+        self.playback = self.playback.with_spatial(true);
+        self.parent = Some(parent);
         self
     }
 }
@@ -69,12 +114,21 @@ impl<M: MusicCategory> PlayMusic<M> {
 ///
 /// # Example
 ///
-/// ```rust,ignore
-/// use msg_audio::StopMusic;
-///
+/// ```rust
+/// # use bevy::prelude::*;
+/// # use msg_audio::prelude::*;
+/// # #[derive(Component, Clone, Copy, Default, Debug, PartialEq, Eq, Reflect)]
+/// # #[reflect(Component)]
+/// # enum MyMusicCategory { #[default] Main, Combat }
+/// # #[derive(Resource, Clone, Default)]
+/// # struct Cfg;
+/// # impl AudioConfigTrait for Cfg { fn master_volume(&self) -> f32 { 1.0 } }
+/// # impl AudioCategory for MyMusicCategory { type Config = Cfg; fn volume_multiplier(&self, _: &Cfg) -> f32 { 1.0 } }
+/// # impl MusicCategory for MyMusicCategory {}
 /// fn stop_combat_music(mut messages: MessageWriter<StopMusic<MyMusicCategory>>) {
 ///     messages.write(StopMusic::new(MyMusicCategory::Combat));
 /// }
+/// # fn main() {}
 /// ```
 #[derive(Message, Clone)]
 pub struct StopMusic<M: MusicCategory> {
@@ -97,12 +151,21 @@ impl<M: MusicCategory> StopMusic<M> {
 ///
 /// # Example
 ///
-/// ```rust,ignore
-/// use msg_audio::StopAllMusic;
-///
+/// ```rust
+/// # use bevy::prelude::*;
+/// # use msg_audio::prelude::*;
+/// # #[derive(Component, Clone, Copy, Default, Debug, PartialEq, Eq, Reflect)]
+/// # #[reflect(Component)]
+/// # enum MyMusicCategory { #[default] Main }
+/// # #[derive(Resource, Clone, Default)]
+/// # struct Cfg;
+/// # impl AudioConfigTrait for Cfg { fn master_volume(&self) -> f32 { 1.0 } }
+/// # impl AudioCategory for MyMusicCategory { type Config = Cfg; fn volume_multiplier(&self, _: &Cfg) -> f32 { 1.0 } }
+/// # impl MusicCategory for MyMusicCategory {}
 /// fn mute_all_music(mut messages: MessageWriter<StopAllMusic<MyMusicCategory>>) {
 ///     messages.write(StopAllMusic::default());
 /// }
+/// # fn main() {}
 /// ```
 #[derive(Message, Clone, Default)]
 pub struct StopAllMusic<M: MusicCategory> {
@@ -116,16 +179,26 @@ pub struct StopAllMusic<M: MusicCategory> {
 ///
 /// # Example
 ///
-/// ```rust,ignore
-/// use msg_audio::FadeOutMusic;
+/// ```rust
+/// # use bevy::prelude::*;
+/// # use msg_audio::prelude::*;
 /// use std::time::Duration;
 ///
+/// # #[derive(Component, Clone, Copy, Default, Debug, PartialEq, Eq, Reflect)]
+/// # #[reflect(Component)]
+/// # enum MyMusicCategory { #[default] Exploration }
+/// # #[derive(Resource, Clone, Default)]
+/// # struct Cfg;
+/// # impl AudioConfigTrait for Cfg { fn master_volume(&self) -> f32 { 1.0 } }
+/// # impl AudioCategory for MyMusicCategory { type Config = Cfg; fn volume_multiplier(&self, _: &Cfg) -> f32 { 1.0 } }
+/// # impl MusicCategory for MyMusicCategory {}
 /// fn fade_to_new_track(mut messages: MessageWriter<FadeOutMusic<MyMusicCategory>>) {
 ///     messages.write(FadeOutMusic::new(
 ///         MyMusicCategory::Exploration,
 ///         Duration::from_secs(2),
 ///     ));
 /// }
+/// # fn main() {}
 /// ```
 #[derive(Message, Clone)]
 pub struct FadeOutMusic<M: MusicCategory> {
@@ -158,16 +231,26 @@ impl<M: MusicCategory> FadeOutMusic<M> {
 ///
 /// # Example
 ///
-/// ```rust,ignore
-/// use msg_audio::PlaySfx;
-///
+/// ```rust
+/// # use bevy::prelude::*;
+/// # use msg_audio::prelude::*;
+/// # #[derive(Component, Clone, Copy, Default, Debug, PartialEq, Eq, Reflect)]
+/// # #[reflect(Component)]
+/// # enum MySfxCategory { #[default] Gameplay }
+/// # #[derive(Resource, Clone, Default)]
+/// # struct Cfg;
+/// # impl AudioConfigTrait for Cfg { fn master_volume(&self) -> f32 { 1.0 } }
+/// # impl AudioCategory for MySfxCategory { type Config = Cfg; fn volume_multiplier(&self, _: &Cfg) -> f32 { 1.0 } }
+/// # impl SfxCategory for MySfxCategory {}
 /// fn play_hit_sound(mut messages: MessageWriter<PlaySfx<MySfxCategory>>) {
+///     let hit_sound_handle: Handle<AudioSource> = Handle::default();
 ///     messages.write(
 ///         PlaySfx::new(hit_sound_handle, MySfxCategory::Gameplay)
 ///             .randomized()
 ///             .with_max_concurrent(3)
 ///     );
 /// }
+/// # fn main() {}
 /// ```
 #[derive(Message, Clone)]
 pub struct PlaySfx<S: SfxCategory> {
@@ -179,6 +262,12 @@ pub struct PlaySfx<S: SfxCategory> {
     pub playback: PlaybackSettings,
     /// Maximum concurrent instances of this sound.
     pub max_concurrent: u32,
+    /// Transform for spatial audio positioning.
+    #[cfg(feature = "spatial")]
+    pub transform: Option<Transform>,
+    /// Parent entity to attach this audio to (implies spatial audio).
+    #[cfg(feature = "spatial")]
+    pub parent: Option<Entity>,
 }
 
 impl<S: SfxCategory> PlaySfx<S> {
@@ -190,6 +279,10 @@ impl<S: SfxCategory> PlaySfx<S> {
             category,
             playback: PlaybackSettings::DESPAWN,
             max_concurrent: crate::bundles::DEFAULT_MAX_CONCURRENT,
+            #[cfg(feature = "spatial")]
+            transform: None,
+            #[cfg(feature = "spatial")]
+            parent: None,
         }
     }
 
@@ -231,6 +324,31 @@ impl<S: SfxCategory> PlaySfx<S> {
         PlaybackRandomizer::standard().apply(&mut self.playback);
         self
     }
+
+    /// Enables spatial audio at the given transform position.
+    ///
+    /// **Note:** A `SpatialListener` must exist in the world (e.g., on the camera or player).
+    #[cfg(feature = "spatial")]
+    #[must_use]
+    pub fn with_spatial(mut self, transform: Transform) -> Self {
+        self.playback = self.playback.with_spatial(true);
+        self.transform = Some(transform);
+        self
+    }
+
+    /// Attaches this audio to a parent entity as spatial audio.
+    ///
+    /// The audio entity will be spawned as a child of the parent (inheriting its transform)
+    /// and linked via [`AudioPlayerOf`](crate::components::AudioPlayerOf) for querying.
+    ///
+    /// **Note:** A `SpatialListener` must exist in the world (e.g., on the camera or player).
+    #[cfg(feature = "spatial")]
+    #[must_use]
+    pub fn with_parent(mut self, parent: Entity) -> Self {
+        self.playback = self.playback.with_spatial(true);
+        self.parent = Some(parent);
+        self
+    }
 }
 
 /// System that handles `PlayMusic` messages by spawning music entities.
@@ -239,11 +357,24 @@ pub fn handle_play_music_events<M: MusicCategory>(
     mut messages: MessageReader<PlayMusic<M>>,
 ) {
     for event in messages.read() {
-        commands.spawn((
+        #[allow(unused_variables, unused_mut)]
+        let mut entity = commands.spawn((
             AudioPlayer(event.handle.clone()),
             event.playback,
             event.category,
         ));
+
+        #[cfg(feature = "spatial")]
+        {
+            if let Some(parent) = event.parent {
+                entity.insert((
+                    ChildOf(parent),
+                    crate::components::AudioPlayerOf(parent),
+                ));
+            } else if let Some(transform) = event.transform {
+                entity.insert(transform);
+            }
+        }
     }
 }
 
@@ -255,12 +386,25 @@ pub fn handle_play_sfx_events<S: SfxCategory>(
     use crate::components::MaxConcurrent;
 
     for event in messages.read() {
-        commands.spawn((
+        #[allow(unused_variables, unused_mut)]
+        let mut entity = commands.spawn((
             AudioPlayer(event.handle.clone()),
             event.playback,
             event.category,
             MaxConcurrent::new(event.handle.clone(), event.max_concurrent),
         ));
+
+        #[cfg(feature = "spatial")]
+        {
+            if let Some(parent) = event.parent {
+                entity.insert((
+                    ChildOf(parent),
+                    crate::components::AudioPlayerOf(parent),
+                ));
+            } else if let Some(transform) = event.transform {
+                entity.insert(transform);
+            }
+        }
     }
 }
 

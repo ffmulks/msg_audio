@@ -11,14 +11,19 @@ use std::time::Duration;
 ///
 /// # Example
 ///
-/// ```rust,ignore
-/// use dmg_audio::MaxConcurrent;
+/// ```rust
+/// # use bevy::prelude::*;
+/// use msg_audio::MaxConcurrent;
 ///
+/// # fn example(mut commands: Commands) {
+/// let footstep_handle: Handle<AudioSource> = Handle::default();
 /// // Limit to 3 concurrent footstep sounds
 /// commands.spawn((
 ///     AudioPlayer(footstep_handle.clone()),
 ///     MaxConcurrent { handle: footstep_handle, max: 3 },
 /// ));
+/// # }
+/// # fn main() {}
 /// ```
 #[derive(Component, Reflect, Debug, Clone)]
 #[reflect(Component)]
@@ -67,12 +72,16 @@ impl SoundEffectCounter {
 ///
 /// # Example
 ///
-/// ```rust,ignore
-/// use dmg_audio::FadeOut;
+/// ```rust
+/// # use bevy::prelude::*;
+/// use msg_audio::FadeOut;
 /// use std::time::Duration;
 ///
+/// # fn example(mut commands: Commands, music_entity: Entity) {
 /// // Manually add fade-out to an existing audio entity
 /// commands.entity(music_entity).insert(FadeOut::new(Duration::from_secs(2)));
+/// # }
+/// # fn main() {}
 /// ```
 #[derive(Component, Reflect, Debug, Clone)]
 #[reflect(Component)]
@@ -192,6 +201,65 @@ impl PlaybackRandomizer {
         }
     }
 }
+
+/// Relationship: this audio entity belongs to a parent game entity.
+///
+/// When added to an audio entity, it establishes a queryable relationship
+/// so you can find all audio players attached to a game entity via [`AudioPlayers`].
+/// Typically used together with `ChildOf` for transform inheritance (spatial audio).
+///
+/// # Example
+///
+/// ```rust
+/// # use bevy::prelude::*;
+/// # use msg_audio::prelude::*;
+/// # use msg_audio::AudioPlayerOf;
+/// # #[derive(Component, Clone, Copy, Default, Debug, PartialEq, Eq, Reflect)]
+/// # #[reflect(Component)]
+/// # enum GameSfx { #[default] Footstep }
+/// # #[derive(Resource, Clone, Default)]
+/// # struct Cfg;
+/// # impl AudioConfigTrait for Cfg { fn master_volume(&self) -> f32 { 1.0 } }
+/// # impl AudioCategory for GameSfx { type Config = Cfg; fn volume_multiplier(&self, _: &Cfg) -> f32 { 1.0 } }
+/// # impl SfxCategory for GameSfx {}
+/// # fn example(mut commands: Commands, handle: Handle<AudioSource>, character_entity: Entity) {
+/// commands.spawn((
+///     SfxBundle::new(handle, GameSfx::Footstep),
+///     ChildOf(character_entity),
+///     AudioPlayerOf(character_entity),
+/// ));
+/// # }
+/// # fn main() {}
+/// ```
+#[cfg(feature = "spatial")]
+#[derive(Component, Debug)]
+#[relationship(relationship_target = AudioPlayers)]
+pub struct AudioPlayerOf(pub Entity);
+
+/// Relationship target: query this on a game entity to find all its audio players.
+///
+/// This component is automatically managed by Bevy's relationship system.
+/// You do not need to add it manually — it is populated when [`AudioPlayerOf`]
+/// is added to audio entities.
+///
+/// # Example
+///
+/// ```rust
+/// # use bevy::prelude::*;
+/// # use msg_audio::AudioPlayers;
+/// # #[derive(Component)]
+/// # struct Player;
+/// fn check_sounds(query: Query<&AudioPlayers, With<Player>>) {
+///     for players in &query {
+///         println!("Player has {} active sounds", players.iter().count());
+///     }
+/// }
+/// # fn main() {}
+/// ```
+#[cfg(feature = "spatial")]
+#[derive(Component, Debug)]
+#[relationship_target(relationship = AudioPlayerOf)]
+pub struct AudioPlayers(Vec<Entity>);
 
 #[cfg(test)]
 mod tests {

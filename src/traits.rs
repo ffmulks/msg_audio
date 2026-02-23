@@ -26,13 +26,17 @@ pub trait AudioCategory: Component + Clone + Copy + Default + PartialEq + Send +
 ///
 /// # Example
 ///
-/// ```rust,ignore
+/// ```rust
 /// use bevy::prelude::*;
-/// use dmg_audio::{MusicCategory, AudioCategory};
+/// use msg_audio::{MusicCategory, AudioCategory, AudioConfigTrait};
+///
+/// #[derive(Resource, Clone, Default)]
+/// struct MyAudioConfig { main_menu_music: f32, exploration_music: f32, combat_music: f32 }
+/// impl AudioConfigTrait for MyAudioConfig { fn master_volume(&self) -> f32 { 1.0 } }
 ///
 /// #[derive(Component, Clone, Copy, Default, Debug, PartialEq, Eq, Reflect)]
 /// #[reflect(Component)]
-/// pub enum GameMusic {
+/// enum GameMusic {
 ///     MainMenu,
 ///     #[default]
 ///     Exploration,
@@ -52,6 +56,7 @@ pub trait AudioCategory: Component + Clone + Copy + Default + PartialEq + Send +
 /// }
 ///
 /// impl MusicCategory for GameMusic {}
+/// # fn main() {}
 /// ```
 pub trait MusicCategory: AudioCategory {}
 
@@ -62,13 +67,17 @@ pub trait MusicCategory: AudioCategory {}
 ///
 /// # Example
 ///
-/// ```rust,ignore
+/// ```rust
 /// use bevy::prelude::*;
-/// use dmg_audio::{SfxCategory, AudioCategory};
+/// use msg_audio::{SfxCategory, AudioCategory, AudioConfigTrait};
+///
+/// #[derive(Resource, Clone, Default)]
+/// struct MyAudioConfig { ui_sfx: f32, gameplay_sfx: f32, ambience_sfx: f32 }
+/// impl AudioConfigTrait for MyAudioConfig { fn master_volume(&self) -> f32 { 1.0 } }
 ///
 /// #[derive(Component, Clone, Copy, Default, Debug, PartialEq, Eq, Reflect)]
 /// #[reflect(Component)]
-/// pub enum GameSfx {
+/// enum GameSfx {
 ///     #[default]
 ///     UI,
 ///     Gameplay,
@@ -88,6 +97,7 @@ pub trait MusicCategory: AudioCategory {}
 /// }
 ///
 /// impl SfxCategory for GameSfx {}
+/// # fn main() {}
 /// ```
 pub trait SfxCategory: AudioCategory {}
 
@@ -98,12 +108,11 @@ pub trait SfxCategory: AudioCategory {}
 ///
 /// # Example
 ///
-/// ```rust,ignore
+/// ```rust
 /// use bevy::prelude::*;
-/// use dmg_audio::AudioConfigTrait;
-/// use serde::{Deserialize, Serialize};
+/// use msg_audio::AudioConfigTrait;
 ///
-/// #[derive(Resource, Clone, Debug, Serialize, Deserialize, Reflect)]
+/// #[derive(Resource, Clone, Debug, Default, Reflect)]
 /// #[reflect(Resource)]
 /// pub struct MyAudioConfig {
 ///     pub master: f32,
@@ -121,6 +130,7 @@ pub trait SfxCategory: AudioCategory {}
 ///         self.muted
 ///     }
 /// }
+/// # fn main() {}
 /// ```
 pub trait AudioConfigTrait: Resource + Clone + Default + Send + Sync + 'static {
     /// Returns the master volume level.

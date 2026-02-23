@@ -10,7 +10,7 @@
 //!
 //! 1. Define your audio categories:
 //!
-//! ```rust,ignore
+//! ```rust
 //! use bevy::prelude::*;
 //! use msg_audio::{AudioCategory, MusicCategory, SfxCategory, AudioConfigTrait};
 //!
@@ -71,23 +71,61 @@
 //!     }
 //! }
 //! impl SfxCategory for GameSfx {}
+//! # fn main() {}
 //! ```
 //!
 //! 2. Add the audio plugin:
 //!
-//! ```rust,ignore
+//! ```rust
+//! # use bevy::prelude::*;
+//! # use msg_audio::prelude::*;
+//! # #[derive(Component, Clone, Copy, Default, Debug, PartialEq, Eq, Reflect)]
+//! # #[reflect(Component)]
+//! # enum GameMusic { #[default] Gameplay, MainMenu }
+//! # #[derive(Component, Clone, Copy, Default, Debug, PartialEq, Eq, Reflect)]
+//! # #[reflect(Component)]
+//! # enum GameSfx { #[default] UI }
+//! # #[derive(Resource, Clone, Default, Reflect)]
+//! # #[reflect(Resource)]
+//! # struct GameAudioConfig { master: f32 }
+//! # impl AudioConfigTrait for GameAudioConfig { fn master_volume(&self) -> f32 { self.master } }
+//! # impl AudioCategory for GameMusic { type Config = GameAudioConfig; fn volume_multiplier(&self, _: &GameAudioConfig) -> f32 { 1.0 } }
+//! # impl MusicCategory for GameMusic {}
+//! # impl AudioCategory for GameSfx { type Config = GameAudioConfig; fn volume_multiplier(&self, _: &GameAudioConfig) -> f32 { 1.0 } }
+//! # impl SfxCategory for GameSfx {}
+//! # let mut app = App::new();
+//! # app.add_plugins(MinimalPlugins);
+//! # app.init_resource::<GameAudioConfig>();
 //! app.add_plugins(MsgAudioPlugin::<GameMusic, GameSfx, GameAudioConfig>::default());
 //! ```
 //!
 //! 3. Play audio:
 //!
-//! ```rust,ignore
+//! ```rust
+//! # use bevy::prelude::*;
+//! # use msg_audio::prelude::*;
+//! # #[derive(Component, Clone, Copy, Default, Debug, PartialEq, Eq, Reflect)]
+//! # #[reflect(Component)]
+//! # enum GameMusic { #[default] Gameplay }
+//! # #[derive(Component, Clone, Copy, Default, Debug, PartialEq, Eq, Reflect)]
+//! # #[reflect(Component)]
+//! # enum GameSfx { #[default] UI, Gameplay }
+//! # #[derive(Resource, Clone, Default)]
+//! # struct Cfg;
+//! # impl AudioConfigTrait for Cfg { fn master_volume(&self) -> f32 { 1.0 } }
+//! # impl AudioCategory for GameMusic { type Config = Cfg; fn volume_multiplier(&self, _: &Cfg) -> f32 { 1.0 } }
+//! # impl MusicCategory for GameMusic {}
+//! # impl AudioCategory for GameSfx { type Config = Cfg; fn volume_multiplier(&self, _: &Cfg) -> f32 { 1.0 } }
+//! # impl SfxCategory for GameSfx {}
+//! # fn example(mut commands: Commands, mut messages: MessageWriter<PlaySfx<GameSfx>>, music_handle: Handle<AudioSource>, sfx_handle: Handle<AudioSource>) {
 //! // Component-based (directly spawn)
 //! commands.spawn(MusicBundle::new(music_handle, GameMusic::Gameplay));
-//! commands.spawn(SfxBundle::new(sfx_handle, GameSfx::UI).randomized());
+//! commands.spawn(SfxBundle::new(sfx_handle.clone(), GameSfx::UI).randomized());
 //!
 //! // Message-based
 //! messages.write(PlaySfx::new(sfx_handle, GameSfx::Gameplay));
+//! # }
+//! # fn main() {}
 //! ```
 //!
 //! ## Features
@@ -96,7 +134,8 @@
 //! - **Volume Management**: Automatic volume application based on master + category
 //! - **Concurrency Limiting**: Prevent audio spam with per-sound limits
 //! - **Randomization**: Built-in volume and pitch randomization for variety
-//! - **Dual API**: Use component bundles or events based on your needs
+//! - **Spatial Audio**: Positional audio with distance attenuation and entity attachment
+//! - **Dual API**: Use component bundles or messages based on your needs
 
 mod bundles;
 mod components;
@@ -106,18 +145,23 @@ mod traits;
 
 pub use bundles::{MusicBundle, SfxBundle, DEFAULT_CONCURRENCY_INTERVAL, DEFAULT_MAX_CONCURRENT};
 pub use components::{FadeOut, MaxConcurrent, PlaybackRandomizer, SoundEffectCounter};
+#[cfg(feature = "spatial")]
+pub use components::{AudioPlayerOf, AudioPlayers};
 pub use events::{FadeOutMusic, PlayMusic, PlaySfx, StopAllMusic, StopMusic};
 pub use traits::{AudioCategory, AudioConfigTrait, MusicCategory, SfxCategory};
 
 use bevy::prelude::*;
+#[cfg(feature = "spatial")]
+use bevy::audio::{DefaultSpatialScale, SpatialScale};
 
-/// Main plugin for the dmg_audio crate.
+/// Main plugin for the msg_audio crate.
 ///
 /// This plugin sets up all the systems needed for audio management including:
 /// - Volume application to new audio entities
 /// - Volume updates when configuration changes
 /// - Concurrency limiting for sound effects
 /// - Event handling for play requests
+/// - Spatial audio support (with the `spatial` feature)
 ///
 /// # Type Parameters
 ///
@@ -125,12 +169,39 @@ use bevy::prelude::*;
 /// - `S`: Your sound effect category type implementing [`SfxCategory`]
 /// - `C`: Your audio config type implementing [`AudioConfigTrait`]
 ///
+/// # Spatial Audio
+///
+/// When the `spatial` feature is enabled (default), you can configure a spatial scale
+/// and use `.with_spatial()` or `.with_parent()` on audio messages and bundles.
+///
+/// **Important:** You must add a `SpatialListener` component to your listener entity
+/// (e.g., camera or player) for spatial audio to work.
+///
 /// # Example
 ///
-/// ```rust,ignore
+/// ```rust
+/// # use bevy::prelude::*;
+/// # use msg_audio::prelude::*;
+/// # #[derive(Component, Clone, Copy, Default, Debug, PartialEq, Eq, Reflect)]
+/// # #[reflect(Component)]
+/// # enum GameMusic { #[default] Gameplay }
+/// # #[derive(Component, Clone, Copy, Default, Debug, PartialEq, Eq, Reflect)]
+/// # #[reflect(Component)]
+/// # enum GameSfx { #[default] UI }
+/// # #[derive(Resource, Clone, Default, Reflect)]
+/// # #[reflect(Resource)]
+/// # struct GameAudioConfig { master: f32 }
+/// # impl AudioConfigTrait for GameAudioConfig { fn master_volume(&self) -> f32 { self.master } }
+/// # impl AudioCategory for GameMusic { type Config = GameAudioConfig; fn volume_multiplier(&self, _: &GameAudioConfig) -> f32 { 1.0 } }
+/// # impl MusicCategory for GameMusic {}
+/// # impl AudioCategory for GameSfx { type Config = GameAudioConfig; fn volume_multiplier(&self, _: &GameAudioConfig) -> f32 { 1.0 } }
+/// # impl SfxCategory for GameSfx {}
+/// # let mut app = App::new();
+/// # app.add_plugins(MinimalPlugins);
+/// # app.init_resource::<GameAudioConfig>();
+/// // Basic setup
 /// app.add_plugins(MsgAudioPlugin::<GameMusic, GameSfx, GameAudioConfig>::default());
 /// ```
-#[derive(Default)]
 pub struct MsgAudioPlugin<M, S, C>
 where
     M: MusicCategory<Config = C>,
@@ -138,6 +209,44 @@ where
     C: AudioConfigTrait,
 {
     _phantom: std::marker::PhantomData<(M, S, C)>,
+    #[cfg(feature = "spatial")]
+    spatial_scale: Option<SpatialScale>,
+}
+
+impl<M, S, C> Default for MsgAudioPlugin<M, S, C>
+where
+    M: MusicCategory<Config = C>,
+    S: SfxCategory<Config = C>,
+    C: AudioConfigTrait,
+{
+    fn default() -> Self {
+        Self {
+            _phantom: std::marker::PhantomData,
+            #[cfg(feature = "spatial")]
+            spatial_scale: None,
+        }
+    }
+}
+
+impl<M, S, C> MsgAudioPlugin<M, S, C>
+where
+    M: MusicCategory<Config = C>,
+    S: SfxCategory<Config = C>,
+    C: AudioConfigTrait,
+{
+    /// Sets the spatial audio scale for distance attenuation.
+    ///
+    /// For 2D games, use `SpatialScale::new_2d(1.0 / pixels_per_unit)`.
+    /// For example, `SpatialScale::new_2d(1.0 / 100.0)` means 100 pixels = 1 audio unit.
+    ///
+    /// **Important:** You must add a `SpatialListener` component to your listener entity
+    /// (e.g., camera or player) for spatial audio to work.
+    #[cfg(feature = "spatial")]
+    #[must_use]
+    pub fn with_spatial_scale(mut self, scale: SpatialScale) -> Self {
+        self.spatial_scale = Some(scale);
+        self
+    }
 }
 
 impl<M, S, C> Plugin for MsgAudioPlugin<M, S, C>
@@ -154,6 +263,12 @@ where
 
         // Initialize resources
         app.init_resource::<SoundEffectCounter>();
+
+        // Spatial audio setup
+        #[cfg(feature = "spatial")]
+        if let Some(scale) = self.spatial_scale {
+            app.insert_resource(DefaultSpatialScale(scale));
+        }
 
         // Add messages (renamed from events in Bevy 0.17)
         app.add_message::<PlayMusic<M>>();
@@ -194,9 +309,21 @@ where
 ///
 /// # Example
 ///
-/// ```rust,ignore
+/// ```rust
+/// # use bevy::prelude::*;
+/// # use msg_audio::prelude::*;
+/// # #[derive(Component, Clone, Copy, Default, Debug, PartialEq, Eq, Reflect)]
+/// # #[reflect(Component)]
+/// # enum MyMusic { #[default] Main }
+/// # #[derive(Resource, Clone, Default)]
+/// # struct MyConfig;
+/// # impl AudioConfigTrait for MyConfig { fn master_volume(&self) -> f32 { 1.0 } }
+/// # impl AudioCategory for MyMusic { type Config = MyConfig; fn volume_multiplier(&self, _: &MyConfig) -> f32 { 1.0 } }
+/// # impl MusicCategory for MyMusic {}
+/// # let mut app = App::new();
+/// # app.add_plugins(MinimalPlugins);
 /// app.add_plugins(MsgAudioMinimalPlugin);
-/// app.add_systems(Update, systems::apply_volume_to_new_music::<MyMusic, MyConfig>);
+/// app.add_systems(Update, msg_audio::audio_systems::apply_volume_to_new_music::<MyMusic, MyConfig>);
 /// ```
 pub struct MsgAudioMinimalPlugin;
 
@@ -234,6 +361,11 @@ pub mod prelude {
     pub use crate::events::{FadeOutMusic, PlayMusic, PlaySfx, StopAllMusic, StopMusic};
     pub use crate::traits::{AudioCategory, AudioConfigTrait, MusicCategory, SfxCategory};
     pub use crate::{MsgAudioMinimalPlugin, MsgAudioPlugin};
+
+    #[cfg(feature = "spatial")]
+    pub use crate::components::{AudioPlayerOf, AudioPlayers};
+    #[cfg(feature = "spatial")]
+    pub use bevy::audio::{SpatialListener, SpatialScale};
 }
 
 #[cfg(test)]

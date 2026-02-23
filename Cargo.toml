@@ -11,7 +11,8 @@ categories = ["game-development", "multimedia::audio"]
 readme = "README.md"
 
 [features]
-default = []
+default = ["spatial"]
+spatial = []
 serde = ["dep:serde"]
 
 [dependencies]

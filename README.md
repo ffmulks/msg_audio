@@ -8,7 +8,8 @@ A flexible, type-safe audio management crate for [Bevy](https://bevyengine.org/)
 - **Volume Management** - Automatic volume application combining master volume with category-specific levels
 - **Concurrency Limiting** - Prevent audio spam by limiting concurrent instances of the same sound
 - **Playback Randomization** - Built-in volume and pitch randomization for sound variety
-- **Dual API** - Choose between component-based (bundles) or event-based (fire-and-forget) audio playback
+- **Spatial Audio** - Positional audio with distance attenuation, entity attachment, and custom relationships
+- **Dual API** - Choose between component-based (bundles) or message-based (fire-and-forget) audio playback
 - **Minimal Plugin Option** - Full control over system scheduling when needed
 
 ## Installation
@@ -132,27 +133,97 @@ fn spawn_audio(mut commands: Commands, assets: Res<AssetServer>) {
 }
 ```
 
-**Event-based (fire-and-forget):**
+**Message-based (fire-and-forget):**
 
 ```rust
 use msg_audio::{PlayMusic, PlaySfx, StopMusic, FadeOutMusic};
 use std::time::Duration;
 
-fn play_sound(mut sfx_events: EventWriter<PlaySfx<GameSfx>>, assets: Res<AssetServer>) {
-    sfx_events.write(
+fn play_sound(mut messages: MessageWriter<PlaySfx<GameSfx>>, assets: Res<AssetServer>) {
+    messages.write(
         PlaySfx::new(assets.load("sfx/explosion.ogg"), GameSfx::Environment)
             .randomized()
             .with_max_concurrent(5)
     );
 }
 
-fn stop_music(mut events: EventWriter<StopMusic<GameMusic>>) {
-    events.write(StopMusic::new(GameMusic::Combat));
+fn stop_music(mut messages: MessageWriter<StopMusic<GameMusic>>) {
+    messages.write(StopMusic::new(GameMusic::Combat));
 }
 
-fn fade_to_new_track(mut events: EventWriter<FadeOutMusic<GameMusic>>) {
-    events.write(FadeOutMusic::from_secs(GameMusic::Combat, 2.0));
+fn fade_to_new_track(mut messages: MessageWriter<FadeOutMusic<GameMusic>>) {
+    messages.write(FadeOutMusic::from_secs(GameMusic::Combat, 2.0));
 }
+```
+
+### 4. Spatial Audio (enabled by default)
+
+Configure spatial scale on the plugin:
+
+```rust
+use msg_audio::prelude::*;
+
+App::new()
+    .add_plugins(DefaultPlugins)
+    .add_plugins(
+        MsgAudioPlugin::<GameMusic, GameSfx, GameAudioConfig>::default()
+            .with_spatial_scale(SpatialScale::new_2d(1.0 / 100.0))
+    )
+    .run();
+```
+
+**Important:** You must add a `SpatialListener` component to your listener entity (e.g., camera or player):
+
+```rust
+fn setup(mut commands: Commands) {
+    commands.spawn((
+        Camera2d,
+        SpatialListener::default(),
+    ));
+}
+```
+
+**Play spatial audio at a world position:**
+
+```rust
+fn explosion(mut messages: MessageWriter<PlaySfx<GameSfx>>, assets: Res<AssetServer>) {
+    messages.write(
+        PlaySfx::new(assets.load("sfx/explosion.ogg"), GameSfx::Environment)
+            .with_spatial(Transform::from_xyz(100.0, 50.0, 0.0))
+    );
+}
+```
+
+**Attach audio to a game entity (inherits transform):**
+
+```rust
+fn footstep(mut messages: MessageWriter<PlaySfx<GameSfx>>, player: Query<Entity, With<Player>>, assets: Res<AssetServer>) {
+    let player_entity = player.single();
+    messages.write(
+        PlaySfx::new(assets.load("sfx/footstep.ogg"), GameSfx::Player)
+            .with_parent(player_entity)
+    );
+}
+```
+
+Using `.with_parent(entity)` automatically enables spatial audio, spawns the audio as a child (via `ChildOf`), and links it with the `AudioPlayerOf` / `AudioPlayers` relationship for querying:
+
+```rust
+fn count_active_sounds(query: Query<&AudioPlayers, With<Player>>) {
+    for players in &query {
+        println!("Player has {} active sounds", players.iter().count());
+    }
+}
+```
+
+**With bundles**, use `.with_spatial()` and add `ChildOf` / `AudioPlayerOf` manually:
+
+```rust
+commands.spawn((
+    SfxBundle::new(handle, GameSfx::Player).with_spatial(),
+    ChildOf(player_entity),
+    AudioPlayerOf(player_entity),
+));
 ```
 
 ## API Overview
@@ -174,6 +245,8 @@ fn fade_to_new_track(mut events: EventWriter<FadeOutMusic<GameMusic>>) {
 | `SoundEffectCounter` | Resource tracking active sound counts |
 | `PlaybackRandomizer` | Builder for volume/pitch randomization |
 | `FadeOut` | Gradual volume reduction with auto-despawn |
+| `AudioPlayerOf` | Relationship: audio entity belongs to a game entity (spatial) |
+| `AudioPlayers` | Relationship target: query all audio on a game entity (spatial) |
 
 ### Bundles
 
@@ -182,10 +255,10 @@ fn fade_to_new_track(mut events: EventWriter<FadeOutMusic<GameMusic>>) {
 | `MusicBundle<M>` | Spawn music with looping playback |
 | `SfxBundle<S>` | Spawn SFX with despawn-on-finish and concurrency limiting |
 
-### Events
+### Messages
 
-| Event | Purpose |
-|-------|---------|
+| Message | Purpose |
+|---------|---------|
 | `PlayMusic<M>` | Request music playback (fire-and-forget) |
 | `PlaySfx<S>` | Request SFX playback (fire-and-forget) |
 | `StopMusic<M>` | Stop music of a specific category |
