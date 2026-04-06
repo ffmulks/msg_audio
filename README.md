@@ -338,7 +338,7 @@ Prevent audio spam from rapid sound triggers:
 SfxBundle::new(footstep_handle, GameSfx::Player)
     .with_max_concurrent(3)
 
-// Default is 5 concurrent instances (DEFAULT_MAX_CONCURRENT)
+// Default is 10 concurrent instances (DEFAULT_MAX_CONCURRENT)
 ```
 
 ### Global Mute
