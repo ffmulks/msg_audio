@@ -89,17 +89,18 @@ pub fn enforce_sfx_concurrency<S: SfxCategory>(
     mut commands: Commands,
     time: Res<Time>,
     mut counter: ResMut<SoundEffectCounter>,
-    query: Query<(Entity, &AudioPlayer, &MaxConcurrent), With<S>>,
+    query: Query<(Entity, &MaxConcurrent), With<S>>,
 ) {
     // Reset counts periodically to prevent stale data
     if counter.timer.tick(time.delta()).just_finished() {
         counter.counts.clear();
     }
 
-    // Track and limit concurrent sounds
+    // Track and limit concurrent sounds, keyed on MaxConcurrent.handle (the declared
+    // sound identity) so grouping is always driven by the explicit concurrency key.
     let mut kept_counts: HashMap<Handle<AudioSource>, u32> = HashMap::new();
-    for (entity, audio_player, max) in &query {
-        let kept_so_far = kept_counts.entry(audio_player.0.clone()).or_insert(0);
+    for (entity, max) in &query {
+        let kept_so_far = kept_counts.entry(max.handle.clone()).or_insert(0);
         if *kept_so_far >= max.max {
             commands.entity(entity).despawn();
         } else {

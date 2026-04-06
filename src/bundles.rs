@@ -6,7 +6,7 @@ use crate::components::{MaxConcurrent, PlaybackRandomizer};
 use crate::traits::{MusicCategory, SfxCategory};
 
 /// Default maximum concurrent instances for sound effects.
-pub const DEFAULT_MAX_CONCURRENT: u32 = 5;
+pub const DEFAULT_MAX_CONCURRENT: u32 = 10;
 
 /// Default timer interval for concurrency checking (in seconds).
 pub const DEFAULT_CONCURRENCY_INTERVAL: f32 = 0.5;
@@ -136,7 +136,7 @@ pub struct SfxBundle<C: SfxCategory> {
 impl<C: SfxCategory> SfxBundle<C> {
     /// Creates a new sound effect bundle with default settings.
     ///
-    /// Uses despawn-on-finish playback and default max concurrency (5).
+    /// Uses despawn-on-finish playback and default max concurrency (10).
     #[must_use]
     pub fn new(handle: Handle<AudioSource>, category: C) -> Self {
         Self {
