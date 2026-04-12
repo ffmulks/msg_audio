@@ -74,6 +74,8 @@
 mod handlers;
 mod messages;
 mod randomization;
+#[cfg(test)]
+mod tests;
 mod traits;
 mod volume;
 
